@@ -12,8 +12,12 @@ install -Dm755 cups/filter/ups_4x6_autofit \
   /usr/local/lib/cups/filter/ups_4x6_autofit
 
 echo "Installing config (won't overwrite existing)..."
-install -Dm644 -n cups/config/upslabel-autofit.conf \
-  /etc/upslabel-autofit.conf || true
+if [[ ! -f /etc/upslabel-autofit.conf ]]; then
+  install -Dm644 cups/config/upslabel-autofit.conf /etc/upslabel-autofit.conf
+else
+  echo "Config exists at /etc/upslabel-autofit.conf — leaving it unchanged."
+fi
+
 
 echo "Detecting label printer..."
 PRINTER="$(scripts/find_printer.sh || true)"
