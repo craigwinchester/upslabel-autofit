@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# CUPS filter args:
+# 1=job-id 2=user 3=title 4=copies 5=options 6=file
+INPUT="${6:-/dev/stdin}"
+
+# Defaults (PDF points; 72 = 1 inch)
+LEFT=0
+BOTTOM=360
+WIDTH=288
+HEIGHT=432
+ORIENTATION=3   # try 1 or 3 if rotated wrong
+
+CONF="/etc/upslabel-autofit.conf"
+if [[ -f "$CONF" ]]; then
+  # shellcheck disable=SC1090
+  source "$CONF"
+fi
+
+exec gs -q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite \
+  -dAutoRotatePages=/None \
+  -c "<</EndPage{0 eq {gsave ${LEFT} ${BOTTOM} ${WIDTH} ${HEIGHT} rectclip grestore true}{true}ifelse}>> setpagedevice" \
+  -c "<</Orientation ${ORIENTATION}>> setpagedevice" \
+  -o - \
+  "$INPUT"
