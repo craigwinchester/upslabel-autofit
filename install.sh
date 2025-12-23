@@ -8,8 +8,13 @@ apt-get update -y >/dev/null
 apt-get install -y cups ghostscript >/dev/null
 
 echo "Installing CUPS filter..."
+
+# IMPORTANT: Mint/CUPS uses /usr/lib/cups/filter in PATH.
+# Also remove any old copy in /usr/local to avoid confusion.
+rm -f /usr/local/lib/cups/filter/ups_4x6_autofit 2>/dev/null || true
+
 install -Dm755 cups/filter/ups_4x6_autofit \
-  /usr/local/lib/cups/filter/ups_4x6_autofit
+  /usr/lib/cups/filter/ups_4x6_autofit
 
 echo "Installing config (won't overwrite existing)..."
 if [[ ! -f /etc/upslabel-autofit.conf ]]; then
@@ -17,7 +22,6 @@ if [[ ! -f /etc/upslabel-autofit.conf ]]; then
 else
   echo "Config exists at /etc/upslabel-autofit.conf — leaving it unchanged."
 fi
-
 
 echo "Detecting label printer..."
 PRINTER="$(scripts/find_printer.sh || true)"
