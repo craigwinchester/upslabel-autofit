@@ -35,7 +35,7 @@ PDF_OUT="$TMPDIR/out.pdf"
 CROP_W=$OUT_H   # because label is sideways, we'll take 6" width worth before rotate
 CROP_H=$OUT_W   # and 4" height worth
 X=92
-Y=213
+Y=233
 
 convert "$PNG_PAGE" -crop ${CROP_W}x${CROP_H}+${X}+${Y} +repage \
   -rotate 90 \
