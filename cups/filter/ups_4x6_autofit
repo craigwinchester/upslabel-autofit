@@ -1,26 +1,48 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# CUPS filter args:
-# 1=job-id 2=user 3=title 4=copies 5=options 6=file
 INPUT="${6:-/dev/stdin}"
 
-# Defaults (PDF points; 72 = 1 inch)
-LEFT=0
-BOTTOM=360
-WIDTH=288
-HEIGHT=432
-ORIENTATION=3   # try 1 or 3 if rotated wrong
+# Printer DPI
+DPI=203
 
-CONF="/etc/upslabel-autofit.conf"
-if [[ -f "$CONF" ]]; then
-  # shellcheck disable=SC1090
-  source "$CONF"
-fi
+# 4x6 inches in pixels at 203 dpi
+OUT_W=$((4 * DPI))   # 812
+OUT_H=$((6 * DPI))   # 1218
 
-exec gs -q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite \
-  -dAutoRotatePages=/None \
-  -c "<</EndPage{0 eq {gsave ${LEFT} ${BOTTOM} ${WIDTH} ${HEIGHT} rectclip grestore true}{true}ifelse}>> setpagedevice" \
-  -c "<</Orientation ${ORIENTATION}>> setpagedevice" \
-  -o - \
+# UPS label is typically in top-left of letter, rotated.
+# We'll render the page, then crop top-left region and rotate to fit 4x6 portrait.
+TMPDIR="$(mktemp -d /tmp/upslabel.XXXXXX)"
+trap 'rm -rf "$TMPDIR"' EXIT
+
+PNG_PAGE="$TMPDIR/page.png"
+PNG_CROP="$TMPDIR/crop.png"
+PDF_OUT="$TMPDIR/out.pdf"
+
+# Render first page at DPI to PNG (no transparency issues)
+# Use -dFirstPage/-dLastPage to keep it fast
+/usr/bin/gs -q -dNOPAUSE -dBATCH \
+  -sDEVICE=pnggray \
+  -r${DPI} \
+  -dFirstPage=1 -dLastPage=1 \
+  -sOutputFile="$PNG_PAGE" \
   "$INPUT"
+
+# Crop top-left area then rotate and resize to 4x6 pixels.
+# You may need to tweak crop geometry depending on your UPS PDF layout.
+# Format: WxH+X+Y (pixels). Start with roughly a 4x6 region from top-left.
+# For letter at 203dpi: 8.5x11 => 1726x2233 px
+CROP_W=$OUT_H   # because label is sideways, we'll take 6" width worth before rotate
+CROP_H=$OUT_W   # and 4" height worth
+X=102
+Y=203
+
+convert "$PNG_PAGE" -crop ${CROP_W}x${CROP_H}+${X}+${Y} +repage \
+  -rotate 90 \
+  -resize ${OUT_W}x${OUT_H}! \
+  "$PNG_CROP"
+
+# Wrap cropped image into a 4x6 PDF
+convert "$PNG_CROP" -units PixelsPerInch -density ${DPI} "$PDF_OUT"
+
+cat "$PDF_OUT"
